@@ -1,6 +1,6 @@
-# Spring Kafka Tutorial - 04: Custom Objects (POJOs) tho Aata! 📦
+# Spring Kafka: Zero to Hero - 05a: Custom Objects (POJOs) tho Aata! 📦
 
-Mawa, manam ippativaraku simple strings pampadam, chadavadam chesam. Kani real-world applications lo, manam strings kaadu, full-fledged Java objects (POJOs - Plain Old Java Objects) ni pampali. For example, oka `User` object, `Order` object, etc.
+Namaste mawa! Manam ippativaraku simple strings pampadam, chadavadam chesam. Kani real-world applications lo, manam strings kaadu, full-fledged Java objects (POJOs - Plain Old Java Objects) ni pampali. For example, oka `User` object, `Order` object, etc.
 
 Ee objects ni network lo ela pampali? Direct ga pampalem. Anduke manam vaatini oka standard format loki marchali. Most popular format enti ante **JSON** (JavaScript Object Notation).
 
@@ -153,8 +153,6 @@ public class MessageConsumerService {
 }
 ```
 
----
-
 ### Diagram: The SerDe Flow 🌊
 
 ```mermaid
@@ -179,16 +177,13 @@ sequenceDiagram
 
 ### 📝 Interview Point:
 
-"**How do you send and receive POJOs with Spring Kafka?**" ani adigithe, confidence tho ee points cheppu:
-1.  "We use Spring Kafka's `JsonSerializer` on the producer side and `JsonDeserializer` on the consumer side."
-2.  "In the `ProducerFactory` configuration, we set `ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG` to `JsonSerializer.class`."
-3.  "In the `ConsumerFactory` configuration, we configure a `JsonDeserializer` instance, specifying the target class (e.g., `new JsonDeserializer<>(User.class)`). It's also important to configure trusted packages for security."
-4.  "Finally, we update the `KafkaTemplate` and `@KafkaListener` method signatures to use the POJO type instead of `String`."
+"**How do you send and receive POJOs with Spring Kafka?**"
+"We use Spring Kafka's `JsonSerializer` on the producer side and `JsonDeserializer` on the consumer side. In the `ProducerFactory`, we set the value serializer to `JsonSerializer.class`. In the `ConsumerFactory`, we configure a `JsonDeserializer` instance, specifying the target class (e.g., `new JsonDeserializer<>(User.class)`). It's also important to configure trusted packages. Finally, we update the `KafkaTemplate` and `@KafkaListener` method signatures to use the POJO type."
 
 ---
 
 ### Next Enti? (What's Next?)
 
-Mawa, manam ippudu real-world data tho pani cheyadam start chesam. Awesome! 🤩 Kani, anni sarlu anukunnattu jaragavu. Message ni deserialize chesetappudu error ravochu, or mana listener lo ne edaina exception ravochu.
+Mawa, manam ippudu real-world data tho pani cheyadam start chesam. Awesome! 🤩 Kani, oka vela producer oka `User` object pampi, consumer `Order` object expect chesthe? Leda, oke topic lo multiple types of objects unte?
 
-Next section lo, ee errors ni and exceptions ni graceful ga ela handle cheyalo chuddam. Error handling is a super important topic, so don't miss it! See you there! 💪
+Next section lo, manam **Handling Multiple Event Types** gurinchi thelusukundam. Adi inka interesting ga untadi! See you there! 😉
