@@ -11,9 +11,9 @@ Headers anevi key-value pairs anamata, kani ivi message content lo kalavavu. Sep
 
 ---
 
-### Headers Ela Pampaali? (Sending Headers) 📤
+### Step 1: Headers Ela Pampaali? (Sending Headers) 📤
 
-`KafkaTemplate` tho message pampetappudu headers add cheyadam chala easy. Manam `ProducerRecord` object ni create chesi, daaniki headers ni add cheyali.
+`KafkaTemplate` tho message pampetappudu headers add cheyadam chala easy. Manam `ProducerRecord` ane **Class** ni create chesi, daaniki headers ni add cheyali.
 
 **Producer Service Update (`MessageProducerService.java`):**
 
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class MessageProducerService {
 
-    private static final String TOPIC = "my-first-topic";
+    private static final String TOPIC = "my-header-topic";
 
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
@@ -52,24 +52,52 @@ Ikkada `X-Trace-Id` and `X-Source-System` anevi manam pampina extra information 
 
 ---
 
-### Diagram: Headers Flow 🏷️➡️📬
+### Step 2: Headers Ela Chadavaali? (Reading Headers) 📥
+
+Listener side lo headers ni chadavaali ante, manam method signature lo `@Header` ane **Annotation** ni use cheyali. Spring Kafka manaki chala built-in header names `KafkaHeaders` aney class lo istundi, kani manam custom headers ni kuda easy ga chadavochu.
+
+**Consumer Service Update (`MessageConsumerService.java`):**
+
+```java
+package com.example.service;
+
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.stereotype.Service;
+
+@Service
+public class MessageConsumerService {
+
+    @KafkaListener(topics = "my-header-topic", groupId = "header-group")
+    public void listenWithHeaders(
+            String message,
+            @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
+            @Header(KafkaHeaders.RECEIVED_KEY) String key,
+            @Header("X-Trace-Id") String traceId,
+            @Header("X-Source-System") String source) {
+
+        System.out.println("#### -> Consumed message from topic: " + topic);
+        System.out.println("#### -> Key: " + key + ", Value: " + message);
+        System.out.println("#### -> Trace ID: " + traceId);
+        System.out.println("#### -> Source System: " + source);
+    }
+}
+```
+
+### Diagram: End-to-End Header Flow 🏷️➡️📬
 
 ```mermaid
-graph TD
-    subgraph Producer App
-        A[Create Message] --> B{Create ProducerRecord};
-        B --> C[Add 'X-Trace-Id' Header];
-        C --> D[kafkaTemplate.send(record)];
-    end
+sequenceDiagram
+    participant Producer
+    participant Consumer
 
-    subgraph Consumer App
-        G[Receive Message] --> H{Extract Headers};
-        H --> I[Process Payload];
-        H --> J[Use Header value (traceId)];
-    end
+    Producer->>Kafka: send(ProducerRecord with headers)
+    Kafka->>Consumer: Delivers ConsumerRecord
 
-    D -- "Message with Headers" --> Kafka[Kafka Topic];
-    Kafka -- " " --> G;
+    Consumer->>Consumer: @Header("X-Trace-Id") extracts 'traceId'
+    Consumer->>Consumer: @Header("X-Source-System") extracts 'source'
+    Consumer->>Consumer: Processes message with header info
 ```
 
 ---
@@ -77,7 +105,7 @@ graph TD
 ### 📝 Interview Point:
 
 "**How can you pass metadata along with a Kafka message without altering the payload?**"
-"The best way is by using **Kafka Headers**. We can add custom headers to the `ProducerRecord` before sending it with `KafkaTemplate`. On the consumer side, we can access these headers in our `@KafkaListener` method by using the `@Header` annotation. This is a clean way to pass cross-cutting concerns like trace IDs or source system information."
+"The best way is by using **Kafka Headers**. We can add custom headers to the `ProducerRecord` object before sending it with `KafkaTemplate`. On the consumer side, we can easily access these headers in our `@KafkaListener` method by using the `@Header` annotation with the specific header name. This is a clean and standard way to pass cross-cutting information like trace IDs or source system details."
 
 ---
 
