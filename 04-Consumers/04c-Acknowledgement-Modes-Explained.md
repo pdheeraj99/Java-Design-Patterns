@@ -10,96 +10,76 @@ Spring Kafka manaki ee pani cheyadaniki `AckMode` ane oka property istundi. Deen
 
 ### Key `AckMode` Options
 
-#### 1. `BATCH` (The Default One)
+#### 1. `BATCH` (The Default One 👍)
 *   **Ela Pani Chestundi?**: Idi default behavior. Listener container `poll()` method tho konni messages (oka batch) theeskuntundi. Aa batch lo unna anni messages ni listener method process chesaka, appudu offset commit avthundi.
 *   **Pros**: Chala efficient. Prathi message ki commit cheyakunda, oke saari batch antha commit chestundi.
 *   **Cons**: Batch madhyalo edaina message fail aithe, aa batch antha malli re-process avthundi.
+*   **Config**: `factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH);` (or just leave it, as it's the default).
 
 #### 2. `RECORD`
 *   **Ela Pani Chestundi?**: `poll()` method batch theeskuntundi, kani prathi message ni listener ki ichi, adi process cheyagane ventane offset commit chestundi.
 *   **Pros**: Oke message ni malli malli process chese chance thakkuva.
 *   **Cons**: Performance konchem thaggutundi, endukante prathi message ki commit chestunnam.
+*   **Config**: `factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);`
 
-#### 3. `MANUAL_IMMEDIATE`
-*   **Ela Pani Chestundi?**: Ikkada antha control mana chethilo untundi. Spring automatic ga commit cheyadu. Maname, mana listener method lo, "ippudu commit chey" ani cheppali.
-*   **Pros**: Full control. Manaki nachinappudu commit cheyochu. For example, message ni database lo save chesaka matrame commit cheyali anukunte, idi perfect.
-*   **Cons**: Maname jaagratthaga handle cheyali. Commit cheyadam marchipothe, messages malli malli vastune untai.
+#### 3. `MANUAL_IMMEDIATE`: "Ventane Chey!" ⚡
+*   **Ela Pani Chestundi?**: Ikkada antha control mana chethilo untundi. Spring automatic ga commit cheyadu. Maname, mana listener method lo, `ack.acknowledge()` ani call cheyagane, ventane, aa consumer thread meeda ne offset commit aipothundi.
+*   **Pros**: Full control and immediate confirmation. Database write successful aithe, ventane commit cheyochu.
+*   **Cons**: Prathi message ki oka separate commit request broker ki velthundi. Performance meeda impact undochu.
+*   **Config**: `factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);`
+
+#### 4. `MANUAL`: "Aagu, Anni Oke Saari Cheddam" 🐢
+*   **Ela Pani Chestundi?**: Ee mode lo kuda maname `ack.acknowledge()` call cheyali, kani offset ventane commit **avvadu**. Adi just "Ee message pani aipoindi" ani mark cheskuntundi. Asalu commit eppudu avthundi? Batch antha process aipoyaka, appudu mark chesina anni offsets ni oke saari commit chestundi.
+*   **Pros**: `MANUAL_IMMEDIATE` kanna better performance, kani manaki individual message acknowledgement control untundi.
+*   **Cons**: `BATCH` mode laage, batch madhyalo fail aithe, already acknowledged messages kuda malli re-process avvochu.
+*   **Config**: `factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);`
 
 ---
 
-### Configuration: `AckMode` ni Ela Set Cheyali? 🛠️
+### Code Example: `MANUAL_IMMEDIATE` vs `MANUAL`
 
-Ee `AckMode` ni manam `ConcurrentKafkaListenerContainerFactory` lo set chestam.
-
-**Example: `MANUAL_IMMEDIATE` Mode**
-
-```java
-// In KafkaConsumerConfig.java
-import org.springframework.kafka.listener.ContainerProperties;
-
-@Configuration
-public class KafkaConsumerConfig {
-
-    // ... consumerFactory() bean ...
-
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory());
-
-        // AckMode ni set cheddam!
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
-
-        return factory;
-    }
-}
-```
-
-**Listener lo Manual Commit Ela Cheyali?**
-`AckMode.MANUAL_IMMEDIATE` vaadinappudu, mana listener method ki `Acknowledgment` object ni parameter ga theeskovali.
+`MANUAL_IMMEDIATE` or `MANUAL` vaadinappudu, mana listener method ki `Acknowledgment` object ni parameter ga theeskovali.
 
 ```java
 // In MessageConsumerService.java
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.stereotype.Service;
 
 @Service
-public class MessageConsumerService {
+public class ManualAckConsumerService {
 
-    @KafkaListener(topics = "my-first-topic", groupId = "my-group-id")
+    // Ee listener MANUAL or MANUAL_IMMEDIATE tho pani chestundi
+    @KafkaListener(topics = "my-manual-ack-topic", groupId = "manual-ack-group")
     public void listen(String message, Acknowledgment ack) {
         System.out.println("#### -> Consumed message -> " + message);
-        // Mana logic antha aipoyaka...
+
+        // ... Ekkada mana critical logic untundi, for example, database write ...
+
         System.out.println("#### -> Acknowledging the message");
-        ack.acknowledge(); // Ippudu commit chey ani cheptunnam!
+        ack.acknowledge(); // Ippudu commit chey/mark chey ani cheptunnam!
     }
 }
 ```
 
-### Diagram: AckMode Comparison 📊
+### Diagram: AckMode Decision Flow 🧠
 
 ```mermaid
-gantt
-    title AckMode Behavior
-    dateFormat x
-    axisFormat %s
+graph TD
+    A[Message Batch Received] --> B{Process Each Message};
+    B --> C{AckMode?};
 
-    section BATCH Mode
-    Poll Batch (5 msgs) : 0, 5
-    Process Msg 1      : 5, 1
-    Process Msg 2      : 6, 1
-    Process Msg 3      : 7, 1
-    Process Msg 4      : 8, 1
-    Process Msg 5      : 9, 1
-    Commit Offsets     : 10, 1
+    C -- BATCH --> D[Process ALL messages in batch];
+    D --> E[Commit offsets for entire batch];
 
-    section RECORD Mode
-    Poll Batch (5 msgs) : 0, 5
-    Process & Ack Msg 1 : 5, 2
-    Process & Ack Msg 2 : 7, 2
-    Process & Ack Msg 3 : 9, 2
-    Process & Ack Msg 4 : 11, 2
-    Process & Ack Msg 5 : 13, 2
+    C -- RECORD --> F[Process ONE message];
+    F --> G[Commit offset for that message];
+    G --> B;
 
+    C -- MANUAL / MANUAL_IMMEDIATE --> H[Process ONE message];
+    H --> I[Call ack.acknowledge()];
+    I -- "If MANUAL_IMMEDIATE" --> G;
+    I -- "If MANUAL" --> J[Queue offset for later commit];
+    J --> B;
 ```
 
 ---
@@ -108,14 +88,14 @@ gantt
 
 "**What are the different `AckMode`s in Spring Kafka and when would you use them?**"
 "Spring Kafka provides several `AckMode`s to control offset commits:
-*   **`BATCH` (default):** Commits offsets after the entire batch of records from a poll is processed. It's efficient but can lead to reprocessing the whole batch on failure.
-*   **`RECORD`:** Commits the offset for each record as soon as it's processed by the listener. Use this for better message-level control at the cost of some performance.
-*   **`MANUAL_IMMEDIATE`:** Gives the developer full control. The offset is committed only when `acknowledgment.acknowledge()` is explicitly called in the listener method. This is ideal for critical operations where you need to ensure a task (like a database write) is complete before committing the offset."
+*   **`BATCH` (default):** Commits offsets after the entire batch of records from a poll is processed. It's efficient but can lead to reprocessing.
+*   **`RECORD`:** Commits the offset for each record as soon as it's processed. Use this for better message-level control at the cost of some performance.
+*   **`MANUAL` & `MANUAL_IMMEDIATE`:** Give the developer full control via the `Acknowledgment` object. `MANUAL_IMMEDIATE` commits synchronously when `acknowledge()` is called, which is ideal for critical operations. `MANUAL` queues the acknowledgment and commits them in a batch later, offering a balance between control and performance."
 
 ---
 
 ### Next Enti? (What's Next?)
 
-Super mawa! Ippudu manam mana consumer behavior ni inka better ga control cheyagalam. Kani, inka konni settings unnayi. Mana consumer Kafka nunchi messages ni entha sepu theeskovali (`pollTimeout`)? Oka vela Kafka nunchi response rakapothe entha sepu wait cheyali (`max.poll.interval.ms`)?
+Mawa, manam ippudu offset committing lo masters aipoyam! Kani, konni sarlu manaki oka topic lo unna anni messages avasaram undadu. Konni specific messages ni matrame process cheyali anukuntam.
 
-Ee "fine-tuning" properties gurinchi next section lo chuddam. Get ready to become a performance tuning expert! 🏎️💨
+Next section lo, manam **Filtering Messages** gurinchi thelusukundam. Vachina messages ni listener ki ivvakunda, madyalo ne ela filter cheyalo chuddam! 🗑️➡️✅

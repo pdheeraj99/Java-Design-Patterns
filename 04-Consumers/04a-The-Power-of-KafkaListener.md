@@ -1,6 +1,6 @@
 # Spring Kafka: Zero to Hero - 04a: The Power of @KafkaListener 🦸‍♀️
 
-Namaste mawa! Producer side antha chusam. Ippudu asalu magic chuddam. Piles of code rayakunda, just okke okka annotation tho messages ni ela receive cheskovacho chuddam.
+Namaste mawa! Producer side antha chusam. Ippudu asalu magic chuddam. Piles of code rayakunda, just okke okka **Annotation** tho messages ni ela receive cheskovacho chuddam.
 
 Aa super-power annotation pere **`@KafkaListener`**.
 
@@ -8,12 +8,22 @@ Aa super-power annotation pere **`@KafkaListener`**.
 
 ### `@KafkaListener`: The 24/7 Watcher 🕵️‍♀️
 
-Ee annotation oka method meeda pedithe, Spring Kafka aa method ni oka dedicated "watcher" ga convert chestundi. Aa watcher anukshanam (24/7) manam cheppina topic ni gamanistu untundi. Topic loki kotha message రాగానే, ee watcher daanini pattukuni, manam రాసిన method ki istundi.
+Ee annotation oka method meeda pedithe, Spring Kafka aa method ni oka dedicated "watcher" ga convert chestundi. Ee pattern ni **Message-Driven POJO** (Plain Old Java Object) antaru. Ante, mana simple Java method ippudu Kafka messages tho drive avthundi.
+
+Aa watcher anukshanam (24/7) manam cheppina topic ni gamanistu untundi. Topic loki kotha message రాగానే, ee watcher daanini pattukuni, manam రాసిన method ki istundi.
 
 **Advantages enti?**
 *   **Zero Boilerplate**: Manam `consumer.poll()` lanti low-level code rayalsina avasaram ledu.
 *   **Automatic**: Antha automatic ga jaruguthundi.
 *   **Simple**: Just oka annotation, anthe!
+
+### `@KafkaListener` Key Attributes
+
+Ee annotation lo manam chala properties set cheyochu, kani ivi most important:
+*   `id`: Ee listener ki oka unique ID. Idi manaki tarvata listener ni programmatically control (e.g., pause, resume) cheyadaniki use avthundi.
+*   `topics`: Ee listener ఏ topic(s) ni vinali anedi ikkada cheptam. Multiple topics ni kuda ivvochu, like `topics = {"topic1", "topic2"}`.
+*   `groupId`: Ee listener ఏ consumer group ki chendinaది anedi ikkada cheptam. Idi parallel processing ki chala important.
+*   `containerFactory`: Ee listener ni manage chese container ni ఏ factory create cheyalo cheptam. Manam custom factory create cheste, daani bean name ikkada ivvali.
 
 ### Basic Usage: A Simple Listener 🎧
 
@@ -28,18 +38,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class MessageConsumerService {
 
-    @KafkaListener(topics = "my-first-topic", groupId = "my-group-id")
+    // Ee annotation chudu, entha simple ga undo!
+    @KafkaListener(id = "my-first-listener",
+                   topics = "my-first-topic",
+                   groupId = "my-group-id",
+                   containerFactory = "kafkaListenerContainerFactory") // Manam config lo create chesina factory
     public void listen(String message) {
         System.out.println("#### -> Consumed message -> " + message);
     }
 }
 ```
-
-**Code lo em undi?**
-*   `@KafkaListener`: Ee annotation tho ne asalu magic start avthundi.
-*   `topics = "my-first-topic"`: Ee listener ఏ topic ni vinali anedi ikkada cheptam. Multiple topics ni kuda ivvochu, like `topics = {"topic1", "topic2"}`.
-*   `groupId = "my-group-id"`: Ee listener ఏ consumer group ki chendinaది anedi ikkada cheptam. Idi chala important, manam deeni gurinchi mundu nerchukunnam.
-*   `public void listen(String message)`: Topic lo message రాగానే, aa message ee method ki parameter ga vastundi, and mana code execute avthundi.
 
 Anthe mawa! Intha simple ga manam Kafka consumer ni create chesam.
 
@@ -49,16 +57,25 @@ Anthe mawa! Intha simple ga manam Kafka consumer ni create chesam.
 
 ```mermaid
 graph TD
-    A((Kafka Topic <br/> 'my-first-topic')) -- "New Message Arrives" --> B{Message Listener Container};
-    B -- "Invokes the method" --> C[listen(message)];
-
-    subgraph Spring Application
-        B
-        C
+    subgraph "Your Configuration"
+        A[ListenerContainerFactory Bean]
     end
 
-    style B fill:#ccf,stroke:#333,stroke-width:2px
-    style C fill:#cfc,stroke:#333,stroke-width:2px
+    subgraph "Your Code"
+        B["@KafkaListener(containerFactory='...')"]
+    end
+
+    subgraph "Spring's Magic"
+        C{Message Listener Container}
+    end
+
+    subgraph "Kafka"
+        D((Kafka Topic))
+    end
+
+    A -- "Is used by" --> B;
+    B -- "To create a" --> C;
+    C -- "Polls messages from" --> D;
 ```
 
 ---
@@ -66,7 +83,7 @@ graph TD
 ### 📝 Interview Point:
 
 "**How do you consume messages from a Kafka topic in a Spring application?**"
-"The simplest and most common way is by using the `@KafkaListener` annotation on a method. This annotation designates the method as a Kafka message listener. We configure it with the `topics` to subscribe to and a `groupId`. Spring Kafka's listener container infrastructure handles all the low-level details of polling the consumer and invoking the listener method when a message arrives."
+"The simplest and most common way is by using the `@KafkaListener` annotation on a method. This annotation designates the method as a Kafka message listener. We configure it with essential attributes like `id` for identification, `topics` to subscribe to, and a `groupId`. We also specify a `containerFactory` which Spring uses to create the underlying `MessageListenerContainer`. This container handles all the low-level details of polling the consumer and invoking the listener method when a message arrives."
 
 ---
 

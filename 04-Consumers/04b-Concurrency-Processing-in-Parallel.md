@@ -6,22 +6,25 @@ Ee problem ni solve cheyadaniki, manam multiple threads tho, oke saari multiple 
 
 ---
 
-### Concurrency Ela Work Avthundi?
+### Concurrency Ela Pani Chestundi?
 
 Kafka lo, concurrency anedi **Partitions** meeda aadharapadi untundi.
 *   Oka topic ni manam multiple partitions ga divide cheyochu.
-*   Oke consumer group lo, prathi consumer oka (or konni) partition(s) ki assign avthundi.
-*   **Golden Rule**: Oka partition ni oke saari oke consumer matrame read cheyagaladu (within the same consumer group).
+*   Oke consumer group lo, prathi consumer (thread) oka (or konni) partition(s) ki assign avthundi.
+*   **The Golden Rule**: Oka partition ni oke saari oke consumer matrame read cheyagaladu (within the same consumer group).
 
 So, manam throughput (message processing speed) penchali ante, rendu panulu cheyali:
 1.  Topic ki ekkuva partitions create cheyali.
 2.  Mana application lo antha mandi consumers ni (threads ni) create cheyali.
 
-Spring Kafka lo ee pani cheyadam chala easy. Manam just `ConcurrentKafkaListenerContainerFactory` lo `concurrency` property ni set chesthe chalu.
+**Important Note**: What if `concurrency > number of partitions`? Appudu, konni consumer threads kaaliga (idle) untai, endukante vaatiki assign cheyadaniki partitions undavu. So, always remember: **`concurrency <= number of partitions`** is the ideal setup for maximum efficiency.
 
-### Configuration Update (`KafkaConsumerConfig.java`) 🛠️
+---
 
-Mana listener container factory lo `setConcurrency()` method ni call cheddam.
+### How to Configure Concurrency?
+
+#### Method 1: Setting on the Container Factory (Global Setting)
+Mana listener container factory lo `setConcurrency()` method ni call cheddam. Idi aa factory use chese anni listeners ki apply avthundi.
 
 ```java
 // In KafkaConsumerConfig.java
@@ -43,40 +46,57 @@ public class KafkaConsumerConfig {
     }
 }
 ```
-Ippudu, `my-first-topic` ki 3 (or more) partitions unte, Spring Kafka automatic ga 3 consumer threads ni start chestundi. Prathi thread velli oka partition ni theeskuni, daantlo unna messages ni process cheyadam start chestundi. Anthe, parallel processing achieved!
+
+#### Method 2: Setting on the `@KafkaListener` (Specific Override)
+Oka vela manaki oka specific listener ki matrame vere concurrency kavali anukunte, manam direct ga annotation meeda ne set cheyochu. Idi factory setting ni override chestundi.
+
+```java
+// In MessageConsumerService.java
+
+@Service
+public class MessageConsumerService {
+
+    @KafkaListener(id = "my-high-concurrency-listener",
+                   topics = "high-traffic-topic",
+                   concurrency = "5") // Ee listener ki 5 threads!
+    public void listenToHighTraffic(String message) {
+        System.out.println("High traffic listener processing message: " + message);
+    }
+}
+```
 
 ### Diagram: Concurrency in Action ⚡
 
 ```mermaid
 graph TD
-    subgraph Kafka Topic (3 Partitions)
+    subgraph "Kafka Topic (my-first-topic)"
         P1["Partition 0"]
         P2["Partition 1"]
         P3["Partition 2"]
     end
 
-    subgraph "Spring App (Concurrency = 3)"
+    subgraph "Spring App (Consumer Group: 'my-group-id', Concurrency = 3)"
         direction LR
         C1["Consumer Thread 1"]
         C2["Consumer Thread 2"]
         C3["Consumer Thread 3"]
     end
 
-    P1 -- "Reads from" --> C1
-    P2 -- "Reads from" --> C2
-    P3 -- "Reads from" --> C3
+    P1 -- "Assigned to" --> C1
+    P2 -- "Assigned to" --> C2
+    P3 -- "Assigned to" --> C3
 ```
-Ee diagram lo, manam 3 threads create chesam, and prathi thread velli oka separate partition ni process chestundi. Super fast! 🏎️
+Ee diagram lo, manam 3 threads create chesam, and Kafka prathi thread ki oka separate partition ni assign chesindi. Ippudu processing super fast! 🏎️
 
 ---
 
 ### 📝 Interview Point:
 
-"**How do you achieve parallel message processing in a Spring Kafka consumer?**"
-"Concurrency in Spring Kafka is achieved by configuring the listener container.
-1.  First, the Kafka topic must have multiple partitions.
-2.  Then, in the `ConcurrentKafkaListenerContainerFactory` bean, we set the `concurrency` property to a number greater than one (e.g., `factory.setConcurrency(3)`).
-Spring will then create that many consumer threads. Kafka will automatically assign different partitions to each thread within the same consumer group, enabling parallel processing and significantly increasing throughput."
+"**How do you achieve parallel message processing in a Spring Kafka consumer, and what is the relationship between concurrency and partitions?**"
+"Concurrency in Spring Kafka is achieved by configuring the listener container to use multiple consumer threads. The key is that Kafka assigns each topic partition to exactly one consumer thread within a consumer group.
+1.  First, the Kafka topic must have enough partitions.
+2.  We set the `concurrency` property, either globally on the `ConcurrentKafkaListenerContainerFactory` or for a specific listener on the `@KafkaListener` annotation.
+3.  The number of concurrent threads should ideally be less than or equal to the number of partitions for that topic. If concurrency is higher, the extra threads will remain idle."
 
 ---
 
@@ -84,4 +104,4 @@ Spring will then create that many consumer threads. Kafka will automatically ass
 
 Mawa, manam ippudu multiple threads tho messages ni process chestunnam. Kani, oka chinna question undi. Manam message ni process chesaka, "Ee message pani aipoindi, deenini malli naaku pampaku" ani Kafka ki ela cheptham?
 
-Deenine **Offset Committing** or **Acknowledgement** antaru. Spring Kafka lo deeniki chala modes unnai (`AckMode`). Ee important concept gurinchi next section lo lothuga thelusukundam. Don't miss it! ✅
+Deenine **Offset Committing** or **Acknowledgement** antaru. Ee important concept gurinchi next section lo lothuga thelusukundam. Don't miss it! ✅
